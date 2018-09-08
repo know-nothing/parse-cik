@@ -23,6 +23,7 @@ wheels/
 logs/
 resources/
 .idea/
+tst*
 *.egg-info/
 .installed.cfg
 *.egg
