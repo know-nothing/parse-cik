@@ -21,6 +21,8 @@ sdist/
 var/
 wheels/
 logs/
+resources/
+.idea/
 *.egg-info/
 .installed.cfg
 *.egg
