@@ -3,7 +3,12 @@ import os
 
 def from_tsv(filename_in):
     with open(filename_in, 'r') as f:
-        return [[os.path.dirname(filename_in), filename_in] + _l.split('\t') for _l in f.readlines()]
+        return [[os.path.dirname(filename_in), filename_in] + _l.strip('\n').split('\t') for _l in f.readlines()]
+
+
+def array2d_2tsv(fout, *arr):
+    for row in arr:
+        print('\t'.join(str(e) for e in row), file=fout)
 
 
 def transpose(arr_in):

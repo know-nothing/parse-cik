@@ -9,8 +9,43 @@ import re
 import logging
 
 
-class RawParserSubjPage(RawParserSimple):
+"""
+определяет вид страницы (замечено 2 вида), в зависимости от которого идёт дальнейший парсинг
+v1 - более разухабистая на вид, с большим числом элементов-таблиц
+v2 - более минималистичная
+"""
+def detect_version(self, bs_in):
+    trs = bs_in.find_all('td')
+    for tr in trs:
+        if normalize_string(tr.text) == 'стандартныеотчеты':
+            if tr.get('bgcolor') is not None:
+                return 1
+            if tr.get('class') is not None:
+                return 2
+            self.logger.error("Version pointer found but cannot recognize in " + self.filename_in_full)
+            return 1
+    self.logger.error("Version pointer was not found in " + self.filename_in_full)
+    return 1
 
+
+def get_candlink(bs_in):
+    out = []
+    hrefs = bs_in.find_all('a')
+    cands_re = re.compile('сведения о .*кандидатах.*', re.IGNORECASE)
+    for elem in hrefs:
+        if cands_re.match(elem.text):
+            out.append([elem.text, elem.get('href')])
+    return out
+
+
+def get_reslink(bs_in):
+    out = []
+    hrefs = bs_in.find_all('a')
+    res_re = re.compile('сводная таблица', re.IGNORECASE)
+    for elem in hrefs:
+        if res_re.match(elem.text):
+            out.append([elem.text, elem.get('href')])
+    return out
 
 
 class RawParserProportionalSubjectPage(RawParserSimple):
@@ -19,24 +54,21 @@ class RawParserProportionalSubjectPage(RawParserSimple):
 
     """output: [[href, filename, parser],..]"""
     def parse(self, bs_in, fp_out):
-        hrefs = bs_in.find_all('a')
-        cands_re = re.compile('сведения о .*кандидатах.*', re.IGNORECASE)
-        res_re = re.compile('сводная таблица', re.IGNORECASE)
+        version = detect_version(bs_in)
         out_return = []
         out_2_file = []
-        version = self.detect_version(bs_in)
 
-        for elem in hrefs:
-            if cands_re.match(elem.text):
-                out_return.append([elem.get('href'),
-                                   self.make_filename_out('candidates' if version == 1 else 'candidates1'),
-                                   RawParserCandidatesList(root_path=self.root_path, version=version)])
-                out_2_file.append([elem.text, elem.get('href')])
-            if res_re.match(elem.text):
-                out_return.append([elem.get('href'),
-                                   self.make_filename_out('results'),
-                                   RawParserResultsSummary(root_path=self.root_path, version=version)])
-                out_2_file.append([elem.text, elem.get('href')])
+        for lnk in get_candlink(bs_in):
+            out_return.append([lnk[1],
+                               self.make_filename_out('candidates' if version == 1 else 'candidates1'),
+                               RawParserCandidatesList(root_path=self.root_path, version=version)])
+            out_2_file.append(lnk)
+
+        for lnk in get_reslink(bs_in):
+            out_return.append([lnk[1],
+                               self.make_filename_out('results'),
+                               RawParserResultsSummary(root_path=self.root_path, version=version)])
+            out_2_file.append(lnk)
 
         array2d_2tsv(out_2_file, fp_out)
         if len(out_2_file) != 2:
@@ -46,26 +78,11 @@ class RawParserProportionalSubjectPage(RawParserSimple):
         return out_return
         # return []
 
-    """
-    определяет вид страницы (замечено 2 вида), в зависимости от которого идёт дальнейший парсинг
-    v1 - более разухабистая на вид, с большим числом элементов-таблиц
-    v2 - более минималистичная
-    """
-    def detect_version(self, bs_in):
-        trs = bs_in.find_all('td')
-        for tr in trs:
-            if normalize_string(tr.text) == 'стандартныеотчеты':
-                if tr.get('bgcolor') is not None:
-                    return 1
-                if tr.get('class') is not None:
-                    return 2
-                self.logger.error("Version pointer found but cannot recognize in " + self.filename_in_full)
-                return 1
-        self.logger.error("Version pointer was not found in " + self.filename_in_full)
-        return 1
 
 
-class RawParserMajorSubjPage
+
+class RawParserMajorSubjPage(RawParserSimple):
+    pass
 
 
 class RawParserMajorSubjPageWithSubregs(RawParserSimple):
@@ -73,7 +90,28 @@ class RawParserMajorSubjPageWithSubregs(RawParserSimple):
         super().__init__(root_path, version)
 
     def parse(self, bs_in, fp_out):
-        pass
+        cands = get_candlink(bs_in)
+        version = detect_version(bs_in)
+        out_return = []
+        out_2_file = []
+
+        if cands is None:
+            self.logger.error("Cands not found " + self.filename_in_full)
+            return []
+
+        for lnk in cands:
+            out_return.append([lnk[1],
+                               self.make_filename_out('candidates' if version == 1 else 'candidates1'),
+                               RawParserCandidatesList(root_path=self.root_path, version=version)])
+            out_2_file.append(lnk)
+
+        subregs = self.find_subregions(bs_in)
+        if (subregs is not None) & (len(subregs) > 0):
+            pass
+
+        res = get_reslink(bs_in)
+
+
 
     """ subregs [[name, link], ...]"""
     def find_subregions(self, bs_in):
@@ -83,7 +121,7 @@ class RawParserMajorSubjPageWithSubregs(RawParserSimple):
             return None
         for form in forms:
             go_reg = form.get('name')
-            if (go_reg) & (go_reg == 'go_reg'):
+            if (form.text != '---') & go_reg & (go_reg == 'go_reg'):
                 opts = form.find_all('option')
                 for opt in opts:
                     out.append([opt.text.strip(), opt.get('value')])
