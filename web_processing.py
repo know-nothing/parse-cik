@@ -11,17 +11,21 @@ def get_data(url, filename_out):
         logging.info('skipping ' + url)
         return True
     logging.info('getting data from ' + url)
-    time.sleep(0.61)
-    resp = requests.get(url)
+    time.sleep(0.41)
     try:
+        resp = requests.get(url)
         os.mkdir(os.path.dirname(filename_out))
-    except Exception:
+    except FileExistsError:
         pass
+    except Exception as ex:
+        logging.error(str(ex))
+        return True
+
     if resp.status_code == requests.codes.ok:
         with open(filename_out, 'w') as f:
             print(resp.text, file=f)
         return True
-    raise Exception(str(resp.status_code))
+    logging.error("res status code " + str(resp.status_code))
 
 
 def get_raw_data(root_folder, walking_arr):

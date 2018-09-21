@@ -32,9 +32,15 @@ class RawParserSimple(object):
             os.mkdir(os.path.dirname(abspath_stg))
         except Exception:
             pass
-        with open(abspath_in, 'r') as a, open(abspath_stg, 'w') as b:
-            bs = bs4.BeautifulSoup(a, 'lxml')
-            return self.parse(bs, b)
+        try:
+            with open(abspath_in, 'r') as a, open(abspath_stg, 'w') as b:
+                bs = bs4.BeautifulSoup(a, 'lxml')
+                return self.parse(bs, b)
+        except FileNotFoundError as ex:
+            self.logger.error(str(ex))
+        except OSError as ex:
+            self.logger.error(str(ex))
+        return []
 
     def parse(self, bs_in, fp_out):
         return []

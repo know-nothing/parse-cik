@@ -14,10 +14,46 @@ parties_to_normalize = [['единаяроссия', 'единая россия'
                         ['справедливаяроссия', 'справедливая россия']]
 
 parties = ['единая россия', 'кпрф', 'лдпр', 'справедливая россия', 'другие']
+h_parties = ['единая россия, кол-во', 'единая россия, процент',
+             'кпрф, кол-во', 'кпрф, процент',
+             'лдпр, кол-во', 'лдпр, процент',
+             'справедливая россия, кол-во', 'справедливая россия, процент',
+             'другие, кол-во', 'другие, процент']
 
 
 def normalize_str(st):
     return re.compile(r'\s').sub('', str(st)).lower()
+
+
+def parse_party_result(inp):
+    ress = inp.strip().split(' ')
+    if len(ress) != 2:
+        logger.error("cannot parse num and percent for input string " + inp)
+    num = int(ress[0])
+    percent = float(ress[1][:-1])
+    return num, percent
+
+
+def get_int_scores_for_parties(inp):
+    outp = []
+    for p in inp:
+        num, percent = parse_party_result(p[-1])
+        outp.append([p[-2], [num, percent]])
+    return outp
+
+
+def aggregate_party_result(inp):
+    """ могут быть несколько партий 'другие' """
+    tot_num = tot_percent = 0
+    outp = []
+    for row in inp:
+        if row[0] == 'другие':
+            tot_num += row[1][0]
+            tot_percent += row[1][1]
+        else:
+            outp.append(row)
+    outp.append(['другие', [tot_num, tot_percent]])
+    return outp
 
 
 def get_normalized_party(inp):
@@ -30,22 +66,26 @@ def get_normalized_party(inp):
 
 def get_all_parties_scores(normalized_parties_arr):
     d = dict(normalized_parties_arr)
-    return [[p, d.get(p, '0 0%')] for p in parties]
+    out_arr = []
+    for p in parties:
+        out_arr.append([p[0] + ', кол-во', d.get(p, [0,0])[0]])
+        out_arr.append([p[0] + ', процент', d.get(p, [0, 0])[1]])
+    return out_arr
 
 
 def get_normalized_parties_from_parties_arr(inp_arr):
     out_arr = []
     for row in inp_arr:
         out_arr.append([get_normalized_party(row[len(row) - 2]),
-                        row[len(row) - 1]])
-    return out_arr
+                        parse_party_result(row[len(row) - 1])])
+    return aggregate_party_result(out_arr)
 
 
 def get_parties_from_res_arr(res_arr):
     parties_stage = False
     arr_out = []
     for i in range(1, len(res_arr)):
-        if parties_stage:
+        if parties_stage & (res_arr[i][2].strip() != '-----'):
             arr_out.append(res_arr[i])
         if res_arr[i][2].strip() == '-----':
             parties_stage = True

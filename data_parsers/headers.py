@@ -1,3 +1,5 @@
+from data_parsers.pre_analitycs import h_parties
+
 h_main_search_result = ['id', 'дата', 'район', 'субрайон', 'название выборов', 'link']
 h_subj_page = ['id', 'link']
 h_cands_page_v1 = ['фио',
@@ -32,3 +34,10 @@ h_cand_page_v2 = ['ФИО',
                   'Представительный органа, депутатом которого является кандидат',
                   'Сведения о судимости',
                   'Статус участника выборов']
+
+h_votes = ['vote_id', 'Дата', 'Регион', 'Субрегион', 'На что потратили время']
+
+h_cand_proportional = h_votes + h_cand_page_v2 + h_cands_page_v2[3:-1]
+h_res_proportional = h_votes + \
+                     ['число избирателей', 'число недействительных бюллетеней', 'число действительных бюллетеней'] + \
+                     h_parties
